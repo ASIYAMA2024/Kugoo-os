@@ -21,11 +21,3 @@ export async function discoverDevice(slot: DeviceSlot): Promise<DeviceConnection
 export function disconnectDevice(connection?: DeviceConnection) {
   connection?.device.gatt?.disconnect()
 }
-
-declare global {
-  interface Navigator {
-    bluetooth: {
-      requestDevice(options: RequestDeviceOptions): Promise<BluetoothDevice>
-    }
-  }
-}
