@@ -20,3 +20,322 @@
 @media(max-width:850px){.sidebar{width:70px;padding:15px 8px}.nav-item{justify-content:center;padding:0}.nav-item span{display:none}.side-bottom{justify-content:center}.side-bike span,.version{display:none}.content{padding:22px 18px}.ride-grid{grid-template-columns:1.3fr 1fr 1fr}.speed-card{min-height:230px}.settings-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.topbar{height:58px;padding:0 14px}.brand{min-width:0}.top-status{display:none}.shell{min-height:calc(100vh - 58px)}.sidebar{width:100%;height:62px;position:fixed;bottom:0;left:0;right:0;z-index:5;background:#0c0d10;border-right:0;border-top:1px solid #292b31;flex-direction:row;justify-content:space-around;padding:6px 4px;gap:2px}.nav-item{height:48px;flex:1;flex-direction:column;gap:3px;font-size:7px;padding:3px}.nav-item span{display:block}.nav-item svg{width:17px;height:17px}.side-bottom{display:none}.content{padding:19px 12px 88px}.page-heading{margin-bottom:15px}.page-heading h1{font-size:29px}.date-label{display:none}.ride-grid{grid-template-columns:1fr 1fr;gap:8px}.speed-card{grid-column:span 2;grid-row:auto;min-height:180px}.speed-value{font-size:95px;margin:20px 0 10px}.metric-card{padding:13px;min-height:105px}.metric-value{font-size:30px}.metric-value.compact{font-size:24px}.ride-actions{grid-column:span 2;align-items:flex-start;gap:10px;flex-direction:column}.notice{grid-column:span 2}.battery-layout,.bluetooth-grid,.settings-grid,.stat-cards{grid-template-columns:1fr}.battery-big{font-size:75px}.heading-right{gap:5px}.data-pill{font-size:7px}.footer{font-size:7px}.export-row{flex-wrap:wrap}.diagnostic-row{align-items:flex-start}.diag-state{font-size:7px!important}.device-card{min-height:195px}}
 @media(orientation:landscape) and (max-height:560px){.topbar{height:52px}.shell{min-height:calc(100vh - 52px)}.content{padding-top:14px}.page-heading{margin-bottom:12px}.page-heading h1{font-size:27px}.ride-grid{gap:8px}.speed-card{min-height:190px;padding:15px}.speed-value{font-size:90px}.metric-card{min-height:88px;padding:12px}.metric-value{font-size:29px}.ride-actions{padding:10px 15px}.notice{padding:9px 13px}.footer{padding-top:12px}}
+
+/* =====================================
+   KUGOO — MINIMAL COCKPIT UI REFRESH
+   ===================================== */
+
+.app {
+  --surface: #ffffff;
+  --surface-secondary: #f5f6f7;
+  --page-bg: #f1f2f3;
+  --text-main: #151719;
+  --text-muted: #858a90;
+  --line: #e4e6e8;
+  --success: #19c76a;
+  background: var(--page-bg);
+  color: var(--text-main);
+}
+
+.app:not(.light-mode) {
+  --surface: #17191c;
+  --surface-secondary: #202327;
+  --page-bg: #0c0e10;
+  --text-main: #f5f6f7;
+  --text-muted: #92979e;
+  --line: #303439;
+}
+
+/* top navigation */
+.topbar {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+.brand-sub,
+.top-status,
+.date-label {
+  color: var(--text-muted);
+}
+
+.icon-button {
+  background: var(--surface-secondary);
+  border-color: var(--line);
+  color: var(--text-main);
+  border-radius: 50%;
+}
+
+/* sidebar */
+.sidebar {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+.nav-item {
+  border-radius: 30px;
+  color: var(--text-muted);
+  transition: .2s ease;
+}
+
+.nav-item.selected {
+  background: var(--surface-secondary);
+  border-color: transparent;
+  color: var(--text-main);
+}
+
+.side-bottom {
+  border-color: var(--line);
+}
+
+/* headings */
+.page-heading h1 {
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -.5px;
+}
+
+.eyebrow,
+.card-kicker,
+.metric-label,
+.panel-title {
+  letter-spacing: 1.2px;
+}
+
+/* all menu cards */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  box-shadow: none;
+  color: var(--text-main);
+}
+
+.stat-card,
+.table-panel,
+.battery-main,
+.cell-panel,
+.diagnostics,
+.device-card,
+.setting-panel,
+.message-panel {
+  padding: 23px;
+}
+
+/* statistics */
+.stat-value {
+  font-size: 42px;
+  font-weight: 800;
+}
+
+td {
+  color: var(--text-main);
+  border-color: var(--line);
+  padding: 17px 12px;
+}
+
+th {
+  border-color: var(--line);
+}
+
+.source-tag {
+  border-radius: 20px;
+  padding: 5px 10px;
+}
+
+/* battery */
+.battery-big {
+  font-size: 100px;
+  font-weight: 800;
+  letter-spacing: -3px;
+}
+
+.battery-bar {
+  height: 9px;
+  border-radius: 20px;
+  background: var(--surface-secondary);
+}
+
+.battery-bar span {
+  background: #19c76a;
+  border-radius: 20px;
+}
+
+.battery-spec b {
+  color: var(--text-main);
+  font-size: 23px;
+}
+
+/* diagnostics */
+.diagnostic-row {
+  border-color: var(--line);
+  padding: 19px 0;
+}
+
+.diagnostic-row b {
+  font-size: 12px;
+}
+
+.diag-state.good {
+  color: #19c76a !important;
+}
+
+.diag-state.good i {
+  background: #19c76a;
+  box-shadow: 0 0 8px #19c76a66;
+}
+
+.diag-state.bad i {
+  background: #e9a34c;
+}
+
+/* bluetooth */
+.device-card {
+  border-radius: 18px;
+  min-height: 235px;
+}
+
+.device-icon {
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+}
+
+.device-title {
+  font-size: 25px;
+  font-weight: 800;
+}
+
+.device-status.connected {
+  color: #19c76a;
+}
+
+/* settings */
+.setting-panel {
+  border-radius: 17px;
+}
+
+.setting-row {
+  border-color: var(--line);
+  padding: 18px 0;
+}
+
+.setting-row b {
+  font-size: 12px;
+}
+
+.setting-row span {
+  color: var(--text-muted);
+}
+
+.segmented {
+  background: var(--surface-secondary);
+  border-color: var(--line);
+  border-radius: 30px;
+}
+
+.segmented button {
+  border-radius: 25px;
+}
+
+.segmented button.active {
+  background: var(--text-main);
+  color: var(--surface);
+}
+
+.toggle {
+  border-radius: 30px;
+}
+
+.secondary-button {
+  border-radius: 30px;
+  background: var(--surface-secondary);
+  border-color: var(--line);
+  color: var(--text-main);
+}
+
+.primary-button {
+  border-radius: 30px;
+}
+
+/* notices */
+.notice {
+  border-radius: 15px;
+}
+
+/* light mode */
+.app.light-mode {
+  background: var(--page-bg);
+  color: var(--text-main);
+}
+
+.light-mode .topbar,
+.light-mode .sidebar {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+.light-mode .speed-value,
+.light-mode .metric-value,
+.light-mode .battery-big,
+.light-mode .stat-value,
+.light-mode .page-heading h1 {
+  color: var(--text-main);
+}
+
+.light-mode .metric-value small,
+.light-mode .speed-value small,
+.light-mode .speed-foot,
+.light-mode .action-note {
+  color: var(--text-muted);
+}
+
+.light-mode .speed-track,
+.light-mode .meter {
+  background: var(--surface-secondary);
+}
+
+.light-mode .empty-state,
+.light-mode .muted {
+  color: var(--text-muted);
+}
+
+.light-mode .segmented {
+  background: var(--surface-secondary);
+}
+
+.light-mode .segmented button.active {
+  background: #17191c;
+  color: white;
+}
+
+.light-mode .toggle {
+  background: #dfe2e5;
+  border-color: #dfe2e5;
+}
+
+.light-mode .notice {
+  background: #fff8e9;
+  border-color: #f0dfb9;
+}
+
+/* responsive */
+@media(max-width:620px) {
+  .stat-card,
+  .table-panel,
+  .battery-main,
+  .cell-panel,
+  .diagnostics,
+  .device-card,
+  .setting-panel,
+  .message-panel {
+    padding: 17px;
+  }
+
+  .page-heading h1 {
+    font-size: 32px;
+  }
+
+  .battery-big {
+    font-size: 82px;
+  }
+}
