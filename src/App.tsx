@@ -18,7 +18,9 @@ const pages: { id: Page; label: string; icon: typeof Home }[] = [
   { id: 'bluetooth', label: 'Bluetooth', icon: Bluetooth },
   { id: 'settings', label: 'Settings', icon: Settings }
 ]
-type WakeLockLike = { release: () => Promise<void> }
+type WakeLockLike = {
+  release: () => Promise<void>;
+}
 
 const demo = { speed: 0, battery: 76, voltage: 78.4, current: 0, power: 0, motorTemp: 31, controllerTemp: 29, trip: 0, rideSeconds: 0 }
 
