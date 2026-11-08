@@ -1,199 +1,917 @@
-import { useEffect, useRef, useState } from 'react'
-import type { ReactNode, TouchEvent } from 'react'
-import {
-  Activity, Battery, Bluetooth, ChartNoAxesCombined, CircleAlert, Clock3,
-  Gauge, History, Home, Maximize, Settings, Thermometer, WifiOff, Zap,
-  Download, Play, Square, Bike, ShieldCheck, Radio
-} from 'lucide-react'
-import { discoverDevice, disconnectDevice, type DeviceConnection, type DeviceSlot } from './bluetooth'
-import { getRides, saveRide, type Ride } from './db'
+import React, { useEffect, useRef, useState } from "react";
 
-type Page = 'ride' | 'statistics' | 'battery' | 'diagnostics' | 'bluetooth' | 'settings'
-type Theme = 'red' | 'amber' | 'ice' | 'green'
-const pages: { id: Page; label: string; icon: typeof Home }[] = [
-  { id: 'ride', label: 'Ride', icon: Gauge },
-  { id: 'statistics', label: 'Statistics', icon: ChartNoAxesCombined },
-  { id: 'battery', label: 'Battery', icon: Battery },
-  { id: 'diagnostics', label: 'Diagnostics', icon: ShieldCheck },
-  { id: 'bluetooth', label: 'Bluetooth', icon: Bluetooth },
-  { id: 'settings', label: 'Settings', icon: Settings }
-]
-type WakeLockLike = {
-  release: () => Promise<void>;
+type Page =
+  | "ride"
+  | "statistics"
+  | "battery"
+  | "diagnostics"
+  | "bluetooth"
+  | "settings";
+
+type Theme = "dark" | "light";
+
+type Ride = {
+  id: number;
+  date: string;
+  distance: number;
+  duration: number;
+};
+
+type Telemetry = {
+  speed: number;
+  battery: number;
+  voltage: number;
+  power: number;
+  motorTemp: number | null;
+  controllerTemp: number | null;
+};
+
+const initialTelemetry: Telemetry = {
+  speed: 0,
+  battery: 0,
+  voltage: 0,
+  power: 0,
+  motorTemp: null,
+  controllerTemp: null,
+};
+
+const pages: {
+  id: Page;
+  name: string;
+  description: string;
+  icon: string;
+}[] = [
+  {
+    id: "ride",
+    name: "Ride",
+    description: "Live dashboard",
+    icon: "◉",
+  },
+  {
+    id: "statistics",
+    name: "Statistics",
+    description: "Ride history and records",
+    icon: "▥",
+  },
+  {
+    id: "battery",
+    name: "Battery",
+    description: "Battery information",
+    icon: "▰",
+  },
+  {
+    id: "diagnostics",
+    name: "Diagnostics",
+    description: "System information",
+    icon: "⌁",
+  },
+  {
+    id: "bluetooth",
+    name: "Bluetooth",
+    description: "Device connections",
+    icon: "ᛒ",
+  },
+  {
+    id: "settings",
+    name: "Settings",
+    description: "Customise your dashboard",
+    icon: "⚙",
+  },
+];
+
+const appStyles = `
+* {
+  box-sizing: border-box;
 }
 
-const demo = { speed: 0, battery: 76, voltage: 78.4, current: 0, power: 0, motorTemp: 31, controllerTemp: 29, trip: 0, rideSeconds: 0 }
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #080808;
+}
+
+button {
+  font: inherit;
+}
+
+.kugoo-app {
+  --bg: #080808;
+  --panel: #151515;
+  --panel2: #1d1d1d;
+  --text: #f5f5f5;
+  --muted: #888;
+  --line: #292929;
+  --red: #ed2525;
+  --bezel: #050505;
+
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bezel);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.kugoo-app.light {
+  --bg: #f2f2f2;
+  --panel: #ffffff;
+  --panel2: #e9e9e9;
+  --text: #111111;
+  --muted: #777;
+  --line: #dedede;
+  --red: #dc2020;
+  --bezel: #050505;
+}
+
+.kugoo-app.dark {
+  --bezel: #f5f5f5;
+}
+
+.kugoo-device {
+  width: 100%;
+  height: 100%;
+  max-width: 1000px;
+  max-height: 100%;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.kugoo-topbar {
+  height: 58px;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.kugoo-top-left {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.kugoo-menu-button {
+  width: 39px;
+  height: 39px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--panel);
+  font-size: 21px;
+  cursor: pointer;
+}
+
+.kugoo-logo {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 3px;
+}
+
+.kugoo-logo span {
+  color: var(--red);
+}
+
+.kugoo-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.kugoo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #777;
+}
+
+.kugoo-dot.connected {
+  background: #35c978;
+}
+
+.kugoo-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.kugoo-screen {
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  animation: kugooFade 220ms ease;
+}
+
+@keyframes kugooFade {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.kugoo-page-scroll {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.kugoo-page-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.kugoo-ride-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.kugoo-ride-actions {
+  display: flex;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.kugoo-primary-button,
+.kugoo-secondary-button {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 17px;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.kugoo-primary-button {
+  background: var(--red);
+  color: white;
+}
+
+.kugoo-secondary-button {
+  background: var(--panel2);
+  color: var(--text);
+}
+
+.kugoo-speed-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 19px;
+  padding: 13px 18px;
+  text-align: center;
+  flex: 1.25;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.kugoo-speed-label {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.kugoo-speed {
+  font-size: clamp(64px, 15vw, 112px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kugoo-speed-unit {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.kugoo-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.kugoo-stat-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 11px 13px;
+  min-width: 0;
+}
+
+.kugoo-stat-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.kugoo-stat-value {
+  font-size: clamp(20px, 5vw, 27px);
+  font-weight: 850;
+  margin-top: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kugoo-stat-unit {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.kugoo-notice {
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+  padding: 4px 0;
+  flex-shrink: 0;
+}
+
+.kugoo-heading {
+  font-size: 23px;
+  font-weight: 900;
+  margin: 2px 0 5px;
+}
+
+.kugoo-subheading {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+
+.kugoo-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.kugoo-menu-tile {
+  min-height: 112px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  padding: 15px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 150ms ease, border-color 150ms ease;
+}
+
+.kugoo-menu-tile:active {
+  transform: scale(.97);
+}
+
+.kugoo-menu-icon {
+  font-size: 23px;
+  color: var(--red);
+}
+
+.kugoo-menu-name {
+  font-weight: 850;
+  font-size: 14px;
+}
+
+.kugoo-menu-description {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+.kugoo-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 15px;
+  margin-bottom: 10px;
+}
+
+.kugoo-card-title {
+  font-weight: 800;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.kugoo-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.kugoo-row:last-child {
+  border-bottom: 0;
+}
+
+.kugoo-muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.kugoo-setting-button {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kugoo-input {
+  accent-color: var(--red);
+}
+
+.kugoo-empty {
+  padding: 25px 10px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.kugoo-message {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel2);
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+
+@media (max-height: 500px) {
+  .kugoo-topbar {
+    height: 45px;
+    min-height: 45px;
+  }
+
+  .kugoo-screen {
+    padding: 9px 13px;
+  }
+
+  .kugoo-ride-screen {
+    gap: 7px;
+  }
+
+  .kugoo-stat-card {
+    padding: 7px 10px;
+  }
+
+  .kugoo-speed {
+    font-size: clamp(52px, 12vw, 82px);
+  }
+
+  .kugoo-speed-card {
+    padding: 7px;
+  }
+
+  .kugoo-menu-tile {
+    min-height: 90px;
+  }
+}
+
+@media (min-width: 700px) {
+  .kugoo-ride-screen {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .kugoo-menu-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+`;
+
+function readRides(): Ride[] {
+  try {
+    const saved = localStorage.getItem("kugoo-rides");
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRides(rides: Ride[]) {
+  localStorage.setItem("kugoo-rides", JSON.stringify(rides));
+}
 
 export default function App() {
-  const [page, setPage] = useState<Page>('ride')
-  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('kugoo-theme') as Theme) || 'red')
-  const [units, setUnits] = useState<'kmh' | 'mph'>(() => (localStorage.getItem('kugoo-units') as 'kmh' | 'mph') || 'kmh')
-  const [demoMode, setDemoMode] = useState(false)
-  const [rideActive, setRideActive] = useState(false)
-  const [rideStart, setRideStart] = useState<number | null>(null)
-  const [rideSeconds, setRideSeconds] = useState(0)
-  const [telemetry, setTelemetry] = useState(demo)
-  const [connections, setConnections] = useState<Partial<Record<DeviceSlot, DeviceConnection>>>({})
-  const [busy, setBusy] = useState<DeviceSlot | null>(null)
-  const [message, setMessage] = useState('Bluetooth protocol not configured — no live readings available.')
-  const [rides, setRides] = useState<Ride[]>([])
-  const [wakeSupported, setWakeSupported] = useState(false)
-  const wakeRef = useRef<WakeLockLike | null>(null)
-  const touchStart = useRef<number | null>(null)
+  const [page, setPage] = useState<Page>("ride");
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  useEffect(() => { getRides().then(setRides).catch(() => setMessage('Local ride database could not be opened.')) }, [])
-  useEffect(() => { localStorage.setItem('kugoo-theme', theme) }, [theme])
-  useEffect(() => { localStorage.setItem('kugoo-units', units) }, [units])
+  const [theme, setTheme] = useState<Theme>(() => {
+    return (localStorage.getItem("kugoo-theme") as Theme) || "dark";
+  });
+
+  const [units, setUnits] = useState<"kmh" | "mph">(() => {
+    return (localStorage.getItem("kugoo-units") as "kmh" | "mph") || "kmh";
+  });
+
+  const [demoMode, setDemoMode] = useState(false);
+  const [rideActive, setRideActive] = useState(false);
+  const [rideSeconds, setRideSeconds] = useState(0);
+  const [tripDistance, setTripDistance] = useState(0);
+
+  const [telemetry, setTelemetry] =
+    useState<Telemetry>(initialTelemetry);
+
+  const [device, setDevice] = useState<BluetoothDevice | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const [rides, setRides] = useState<Ride[]>(readRides);
+
+  const rideStartRef = useRef<number | null>(null);
+
   useEffect(() => {
-    if (!demoMode || !rideActive) return
+    localStorage.setItem("kugoo-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("kugoo-units", units);
+  }, [units]);
+
+  useEffect(() => {
+    saveRides(rides);
+  }, [rides]);
+
+  useEffect(() => {
+    if (!rideActive) return;
+
     const timer = window.setInterval(() => {
-      setTelemetry(t => ({ ...t, speed: 24 + Math.round(Math.random() * 8), current: 8 + Math.random() * 4, power: 650 + Math.round(Math.random() * 300), trip: t.trip + 0.001 }))
-      setRideSeconds(s => s + 1)
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [demoMode, rideActive])
-  useEffect(() => {
-    if (!rideActive || demoMode) return
-    const timer = window.setInterval(() => setRideSeconds(s => s + 1), 1000)
-    return () => window.clearInterval(timer)
-  }, [rideActive, demoMode])
-  useEffect(() => {
-    setWakeSupported('wakeLock' in navigator)
-    return () => { wakeRef.current?.release().catch(() => undefined) }
-  }, [])
+      setRideSeconds((seconds) => seconds + 1);
+    }, 1000);
 
-  const activeIndex = pages.findIndex(p => p.id === page)
-  const speed = units === 'kmh' ? telemetry.speed : telemetry.speed * 0.621371
-  const speedLabel = units === 'kmh' ? 'km/h' : 'mph'
-  const connectedCount = Object.values(connections).filter(Boolean).length
-  const hasLiveTelemetry = false // Until a verified protocol adapter is implemented.
-  const statusText = hasLiveTelemetry ? 'LIVE DATA' : demoMode ? 'DEMO DATA' : 'NO LIVE DATA'
+    return () => window.clearInterval(timer);
+  }, [rideActive]);
 
-  async function connect(slot: DeviceSlot) {
-    setBusy(slot); setMessage(`Choose the ${slot === 'fardriver' ? 'FarDriver' : 'JBD'} device in the browser picker.`)
-    try {
-      const connection = await discoverDevice(slot)
-      setConnections(prev => {
-        const old = prev[slot]
-        if (old) disconnectDevice(old)
-        return { ...prev, [slot]: connection }
-      })
-      setMessage(`${connection.name} connected at GATT level. Telemetry protocol is not configured.`)
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Bluetooth connection failed.')
-    } finally { setBusy(null) }
-  }
-  function disconnect(slot: DeviceSlot) {
-    disconnectDevice(connections[slot])
-    setConnections(prev => { const next = { ...prev }; delete next[slot]; return next })
-    setMessage(`${slot === 'fardriver' ? 'FarDriver' : 'JBD'} disconnected.`)
-  }
-  async function toggleWakeLock() {
-    try {
-      if (wakeRef.current) { await wakeRef.current.release(); wakeRef.current = null }
-      else if ('wakeLock' in navigator) wakeRef.current = await (navigator as Navigator & { wakeLock: { request: (type: 'screen') => Promise<WakeLockLike> } }).wakeLock.request('screen')
-    } catch { setMessage('Screen wake lock was denied or is unavailable.') }
-  }
-  async function startRide() {
-    setRideStart(Date.now()); setRideSeconds(0); setRideActive(true)
-    if (demoMode) setTelemetry(t => ({ ...t, trip: 0, speed: 0, current: 0, power: 0 }))
-  }
-  async function stopRide() {
-    setRideActive(false)
-    const ended = Date.now()
-    if (rideStart) {
-      const ride: Ride = {
-        id: crypto.randomUUID(), startedAt: rideStart, endedAt: ended, durationSeconds: rideSeconds,
-        distanceKm: demoMode ? Number(telemetry.trip.toFixed(3)) : null,
-        maxSpeedKmh: demoMode ? telemetry.speed : null,
-        averageSpeedKmh: null, energyWh: null, source: demoMode ? 'demo' : 'verified'
-      }
-      await saveRide(ride); setRides(await getRides())
+  useEffect(() => {
+    if (!demoMode) {
+      setTelemetry(initialTelemetry);
+      return;
     }
-    setRideStart(null)
-  }
-  function exportData(format: 'json' | 'csv') {
-    const content = format === 'json'
-      ? JSON.stringify(rides, null, 2)
-      : ['id,startedAt,endedAt,durationSeconds,distanceKm,maxSpeedKmh,averageSpeedKmh,energyWh,source', ...rides.map(r => [r.id,r.startedAt,r.endedAt,r.durationSeconds,r.distanceKm ?? '',r.maxSpeedKmh ?? '',r.averageSpeedKmh ?? '',r.energyWh ?? '',r.source].join(','))].join('\n')
-    const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/csv' })
-    const url = URL.createObjectURL(blob); const a = document.createElement('a')
-    a.href = url; a.download = `kugoo-rides.${format}`; a.click(); URL.revokeObjectURL(url)
-  }
-  function changePage(next: Page) { setPage(next) }
-  function onTouchStart(e: TouchEvent) { touchStart.current = e.changedTouches[0].clientX }
-  function onTouchEnd(e: TouchEvent) {
-    if (touchStart.current === null) return
-    const delta = e.changedTouches[0].clientX - touchStart.current
-    if (Math.abs(delta) > 90) setPage(pages[Math.max(0, Math.min(pages.length - 1, activeIndex + (delta < 0 ? 1 : -1)))].id)
-    touchStart.current = null
-  }
-  const duration = `${String(Math.floor(rideSeconds / 3600)).padStart(2,'0')}:${String(Math.floor((rideSeconds % 3600)/60)).padStart(2,'0')}:${String(rideSeconds % 60).padStart(2,'0')}`
 
-  return <div className={`app theme-${theme}`} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-    <header className="topbar">
-      <div className="brand"><div className="brand-mark">K</div><div><div className="brand-name">KUGOO<span>.</span></div><div className="brand-sub">ELECTRIC PERFORMANCE</div></div></div>
-      <div className="top-status"><span className={`status-dot ${connectedCount ? 'on' : ''}`} />{connectedCount ? `${connectedCount} DEVICE${connectedCount > 1 ? 'S' : ''} CONNECTED` : 'DEVICES DISCONNECTED'}<span className="top-divider" />{statusText}</div>
-      <button className="icon-button" title="Toggle full screen" onClick={() => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()}><Maximize size={18}/></button>
-    </header>
+    const timer = window.setInterval(() => {
+      setTelemetry({
+        speed: Math.floor(Math.random() * 25) + 5,
+        battery: 75,
+        voltage: 76.4,
+        power: Math.floor(Math.random() * 1800) + 200,
+        motorTemp: 42,
+        controllerTemp: 38,
+      });
+    }, 1000);
 
-    <div className="shell">
-      <nav className="sidebar">
-        {pages.map(({id,label,icon:Icon}) => <button key={id} className={`nav-item ${page===id?'selected':''}`} onClick={() => changePage(id)}><Icon size={19}/><span>{label}</span></button>)}
-        <div className="side-bottom"><div className="side-bike"><Bike size={18}/><span>WISH 01</span></div><span className="version">BUILD 1.0.0</span></div>
-      </nav>
+    return () => window.clearInterval(timer);
+  }, [demoMode]);
 
-      <main className="content">
-        <div className="page-heading"><div><div className="eyebrow">KUGOO / {page.toUpperCase()}</div><h1>{pages.find(p=>p.id===page)?.label}</h1></div><div className="heading-right"><span className={`data-pill ${demoMode?'demo':'offline'}`}><i/>{statusText}</span><span className="date-label">{new Date().toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short'})}</span></div></div>
+  useEffect(() => {
+    if (!device) return;
 
-        {page === 'ride' && <section className="ride-grid">
-          <div className="speed-card panel"><div className="card-kicker"><Gauge size={16}/> CURRENT SPEED <span className="live-tag">{demoMode?'SIMULATED':'WAITING'}</span></div><div className="speed-value">{demoMode ? speed.toFixed(0) : '—'}<small>{speedLabel}</small></div><div className="speed-foot"><span>MAX SPEED</span><b>{demoMode ? `${speed.toFixed(0)} ${speedLabel}` : '—'}</b></div><div className="speed-track"><span style={{width: `${demoMode ? Math.min(100, speed / 80 * 100) : 0}%`}}/></div></div>
-          <div className="metric-card panel"><div className="metric-label"><Battery size={16}/> BATTERY</div><div className="metric-value">{demoMode?`${telemetry.battery}%`:'—'}</div><div className="metric-sub">{demoMode?`${telemetry.voltage.toFixed(1)} V`:'No BMS data'}</div><div className="meter"><span style={{width:demoMode?`${telemetry.battery}%`:'0%'}}/></div></div>
-          <div className="metric-card panel"><div className="metric-label"><Zap size={16}/> POWER</div><div className="metric-value">{demoMode?telemetry.power:'—'}<small> W</small></div><div className="metric-sub">{demoMode?`${telemetry.current.toFixed(1)} A`:'No controller data'}</div></div>
-          <div className="metric-card panel"><div className="metric-label"><Thermometer size={16}/> MOTOR TEMP</div><div className="metric-value">{demoMode?telemetry.motorTemp:'—'}<small>°C</small></div><div className="metric-sub">Controller: {demoMode?`${telemetry.controllerTemp}°C`:'—'}</div></div>
-          <div className="metric-card panel"><div className="metric-label"><Activity size={16}/> TRIP DISTANCE</div><div className="metric-value">{demoMode?telemetry.trip.toFixed(2):'—'}<small> km</small></div><div className="metric-sub">Since ride start</div></div>
-          <div className="metric-card panel"><div className="metric-label"><Clock3 size={16}/> RIDE TIME</div><div className="metric-value compact">{duration}</div><div className="metric-sub">{rideActive?'Ride recording':'Not recording'}</div></div>
-          <div className="ride-actions panel"><div><div className="card-kicker">RIDE SESSION</div><div className="action-note">{rideActive?'Session in progress':'Start a session to record locally'}</div></div><div className="action-buttons">{!rideActive?<button className="primary-button" onClick={startRide}><Play size={16} fill="currentColor"/> START RIDE</button>:<button className="stop-button" onClick={stopRide}><Square size={15} fill="currentColor"/> STOP & SAVE</button>}</div></div>
-          <div className="notice panel"><CircleAlert size={18}/><div><b>Telemetry is not connected</b><span>Values show dashes until a verified device protocol is integrated. Demo mode is separate and clearly labelled.</span></div></div>
-        </section>}
+    const handleDisconnect = () => {
+      setDevice(null);
+      setMessage("Bluetooth device disconnected.");
+    };
 
-        {page === 'statistics' && <section className="stack">
-          <div className="stat-cards"><Stat label="TOTAL RIDES" value={String(rides.length)} icon={<History/>}/><Stat label="RECORDED DISTANCE" value={`${rides.reduce((s,r)=>s+(r.distanceKm||0),0).toFixed(2)} km`} icon={<Activity/>}/><Stat label="RIDE TIME" value={`${Math.round(rides.reduce((s,r)=>s+r.durationSeconds,0)/60)} min`} icon={<Clock3/>}/></div>
-          <div className="panel table-panel"><div className="panel-title">RIDE HISTORY <span>{rides.length} SESSIONS</span></div>{rides.length===0?<Empty>No rides saved yet. Start a session on the Ride page.</Empty>:<div className="table-wrap"><table><thead><tr><th>DATE</th><th>DURATION</th><th>DISTANCE</th><th>MAX SPEED</th><th>SOURCE</th></tr></thead><tbody>{[...rides].reverse().map(r=><tr key={r.id}><td>{new Date(r.startedAt).toLocaleString()}</td><td>{Math.round(r.durationSeconds/60)} min</td><td>{r.distanceKm===null?'—':`${r.distanceKm} km`}</td><td>{r.maxSpeedKmh===null?'—':`${r.maxSpeedKmh} km/h`}</td><td><span className="source-tag">{r.source}</span></td></tr>)}</tbody></table></div>}</div>
-          <div className="export-row"><button className="secondary-button" onClick={()=>exportData('csv')}><Download size={16}/> EXPORT CSV</button><button className="secondary-button" onClick={()=>exportData('json')}><Download size={16}/> EXPORT JSON</button></div>
-        </section>}
+    device.addEventListener("gattserverdisconnected", handleDisconnect);
 
-        {page === 'battery' && <section className="battery-layout">
-          <div className="panel battery-main"><div className="card-kicker"><Battery size={16}/> BATTERY STATUS</div><div className="battery-big">{demoMode?`${telemetry.battery}%`:'—'}</div><div className="muted">{demoMode?'DEMO VALUE':'WAITING FOR VERIFIED JBD DATA'}</div><div className="battery-bar"><span style={{width:demoMode?`${telemetry.battery}%`:'0%'}}/></div><div className="battery-spec"><span>PACK VOLTAGE<b>{demoMode?`${telemetry.voltage} V`:'—'}</b></span><span>CURRENT<b>{demoMode?`${telemetry.current.toFixed(1)} A`:'—'}</b></span><span>TEMPERATURE<b>—</b></span></div></div>
-          <div className="panel cell-panel"><div className="panel-title">CELL INFORMATION <span>JBD BMS</span></div><Empty>Cell voltages, balance status and battery temperature will appear here after the JBD protocol and data scaling are verified. No cell values are fabricated.</Empty></div>
-        </section>}
+    return () => {
+      device.removeEventListener(
+        "gattserverdisconnected",
+        handleDisconnect
+      );
+    };
+  }, [device]);
 
-        {page === 'diagnostics' && <section className="stack">
-          <div className="panel diagnostics"><div className="panel-title">SYSTEM STATUS</div><Diagnostic name="FarDriver ND72450" detail={connections.fardriver?.name || 'Not connected'} state={connections.fardriver?'GATT CONNECTED':'DISCONNECTED'} ok={!!connections.fardriver}/><Diagnostic name="JBD DB24SA05L24S100A" detail={connections.jbd?.name || 'Not connected'} state={connections.jbd?'GATT CONNECTED':'DISCONNECTED'} ok={!!connections.jbd}/><Diagnostic name="FarDriver telemetry" detail="Protocol not verified / not implemented" state="UNAVAILABLE" ok={false}/><Diagnostic name="JBD battery telemetry" detail="Protocol not verified / not implemented" state="UNAVAILABLE" ok={false}/><Diagnostic name="Ride storage" detail="Local IndexedDB" state="READY" ok={true}/><Diagnostic name="Offline app shell" detail="Provided by PWA service worker after first load" state="BUILD CONFIGURED" ok={true}/></div>
-          <div className="notice panel"><ShieldCheck size={18}/><div><b>Read-only design</b><span>This app does not send controller tuning, motor-control or BMS configuration commands.</span></div></div>
-        </section>}
+  const connected = !!device?.gatt?.connected;
 
-        {page === 'bluetooth' && <section className="stack">
-          <div className="bluetooth-grid"><DeviceCard title="FARDRIVER ND72450" subtitle="Controller Bluetooth module" icon={<Radio/>} connection={connections.fardriver} busy={busy==='fardriver'} onConnect={()=>connect('fardriver')} onDisconnect={()=>disconnect('fardriver')}/><DeviceCard title="JBD BMS" subtitle="DB24SA05L24S100A" icon={<Battery/>} connection={connections.jbd} busy={busy==='jbd'} onConnect={()=>connect('jbd')} onDisconnect={()=>disconnect('jbd')}/></div>
-          <div className="notice panel"><CircleAlert size={18}/><div><b>Connection is not telemetry</b><span>Pairing here discovers a BLE device and opens its GATT connection only. No characteristic UUIDs, packet formats or scaling factors are assumed, and no data is read or written.</span></div></div>
-          <div className="panel message-panel"><div className="panel-title">CONNECTION LOG</div><p>{message}</p><button className="text-button" onClick={()=>setMessage('Ready. Select a device to begin BLE discovery.')}>CLEAR LOG</button></div>
-        </section>}
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
 
-        {page === 'settings' && <section className="stack settings-grid">
-          <div className="panel setting-panel"><div className="panel-title">APPEARANCE</div><div className="setting-row"><div><b>Accent colour</b><span>Dashboard highlight colour</span></div><div className="theme-options">{(['red','amber','ice','green'] as Theme[]).map(t=><button key={t} aria-label={`${t} theme`} className={`swatch ${t} ${theme===t?'active':''}`} onClick={()=>setTheme(t)}/>)}</div></div><div className="setting-row"><div><b>Speed units</b><span>Choose your preferred unit</span></div><div className="segmented"><button className={units==='kmh'?'active':''} onClick={()=>setUnits('kmh')}>KM/H</button><button className={units==='mph'?'active':''} onClick={()=>setUnits('mph')}>MPH</button></div></div></div>
-          <div className="panel setting-panel"><div className="panel-title">RIDE DISPLAY</div><div className="setting-row"><div><b>Demo telemetry</b><span>Simulated values only — never real bike data</span></div><button className={`toggle ${demoMode?'enabled':''}`} onClick={()=>{setDemoMode(v=>!v);setTelemetry(demo)}}><i/></button></div><div className="setting-row"><div><b>Keep screen awake</b><span>{wakeSupported?'Use browser screen wake lock':'Not supported in this browser'}</span></div><button className={`toggle ${!!wakeRef.current?'enabled':''}`} onClick={toggleWakeLock} disabled={!wakeSupported}><i/></button></div><div className="setting-row"><div><b>Full screen</b><span>Hide browser controls where supported</span></div><button className="secondary-button small" onClick={()=>document.documentElement.requestFullscreen?.()}><Maximize size={14}/> ENABLE</button></div></div>
-          <div className="panel setting-panel"><div className="panel-title">LOCAL DATA</div><div className="setting-row"><div><b>Export ride history</b><span>Download data stored on this device</span></div><div className="inline-buttons"><button className="secondary-button small" onClick={()=>exportData('csv')}>CSV</button><button className="secondary-button small" onClick={()=>exportData('json')}>JSON</button></div></div><div className="privacy-note"><ShieldCheck size={15}/> No account, cloud sync, analytics or advertising. Ride data stays in this browser's local storage.</div></div>
-          <div className="panel setting-panel"><div className="panel-title">ALERT THRESHOLDS</div><Empty>Threshold controls will be enabled when verified telemetry sources and manufacturer-approved limits are available. No safety limits are guessed.</Empty></div>
-        </section>}
-        <footer className="footer"><span>KUGOO DASHBOARD <b>·</b> READ-ONLY MONITORING</span><span>LOCAL DATA ONLY</span></footer>
-      </main>
-    </div>
-  </div>
-}
+    return [
+      hours.toString().padStart(2, "0"),
+      minutes.toString().padStart(2, "0"),
+      secs.toString().padStart(2, "0"),
+    ].join(":");
+  };
 
-function Stat({label,value,icon}:{label:string;value:string;icon:ReactNode}) { return <div className="panel stat-card"><div className="metric-label">{icon}{label}</div><div className="stat-value">{value}</div></div> }
-function Empty({children}:{children:ReactNode}) { return <div className="empty-state">{children}</div> }
-function Diagnostic({name,detail,state,ok}:{name:string;detail:string;state:string;ok:boolean}) { return <div className="diagnostic-row"><div><b>{name}</b><span>{detail}</span></div><span className={`diag-state ${ok?'good':'bad'}`}><i/>{state}</span></div> }
-function DeviceCard({title,subtitle,icon,connection,busy,onConnect,onDisconnect}:{title:string;subtitle:string;icon:ReactNode;connection?:DeviceConnection;busy:boolean;onConnect:()=>void;onDisconnect:()=>void}) {
-  return <div className="panel device-card"><div className="device-icon">{icon}</div><div className="device-title">{title}</div><div className="muted">{subtitle}</div><div className={`device-status ${connection?'connected':''}`}><i/>{connection?`CONNECTED · ${connection.name}`:'NOT CONNECTED'}</div>{connection?<button className="secondary-button full" onClick={onDisconnect}><WifiOff size={15}/> DISCONNECT</button>:<button className="primary-button full" disabled={busy} onClick={onConnect}><Bluetooth size={15}/>{busy?' SEARCHING…':' CONNECT DEVICE'}</button>}</div>
-}
+  const displayedSpeed =
+    units === "kmh"
+      ? telemetry.speed
+      : telemetry.speed * 0.621371;
+
+  const displayedDistance =
+    units === "kmh"
+      ? tripDistance
+      : tripDistance * 0.621371;
+
+  const startRide = () => {
+    if (rideActive) return;
+
+    setRideSeconds(0);
+    setTripDistance(0);
+    rideStartRef.current = Date.now();
+    setRideActive(true);
+    setMessage("Ride started.");
+  };
+
+  const stopRide = () => {
+    if (!rideActive) return;
+
+    setRideActive(false);
+
+    const newRide: Ride = {
+      id: Date.now(),
+      date: new Date().toLocaleString(),
+      distance: tripDistance,
+      duration: rideSeconds,
+    };
+
+    setRides((previous) => [newRide, ...previous]);
+    setMessage("Ride saved locally.");
+  };
+
+  const connectBluetooth = async () => {
+    if (!("bluetooth" in navigator)) {
+      setMessage(
+        "Web Bluetooth is not available in this browser. Try Chrome on Android."
+      );
+      return;
+    }
+
+    try {
+      setConnecting(true);
+      setMessage("Choose a Bluetooth device.");
+
+      const selectedDevice = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+      });
+
+      if (!selectedDevice.gatt) {
+        setMessage("This device does not provide a GATT connection.");
+        return;
+      }
+
+      await selectedDevice.gatt.connect();
+
+      setDevice(selectedDevice);
+      setMessage(
+        "Connected. No verified telemetry protocol has been configured yet."
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Connection failed.";
+
+      setMessage(errorMessage);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const disconnectBluetooth = () => {
+    if (device?.gatt?.connected) {
+      device.gatt.disconnect();
+    }
+
+    setDevice(null);
+    setMessage("Disconnected.");
+  };
+
+  const exportRides = () => {
+    const data = JSON.stringify(rides, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "kugoo-rides.json";
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
+
+  const selectPage = (selectedPage: Page) => {
+    setPage(selectedPage);
+    setMenuOpen(false);
+    setMessage("");
+  };
+
+  const currentPageName =
+    pages.find((item) => item.id === page)?.name || "Ride";
+
+  return (
+    <div className={`kugoo-app ${theme}`}>
+      <style>{appStyles}</style>
+
+      <div className="kugoo-device">
+        <header className="kugoo-topbar">
+          <div className="kugoo-top-left">
+            <button
+              className="kugoo-menu-button"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Open menu"
+            >
+              {menuOpen ? "×" : "☰"}
+            </button>
+
+            <div className="kugoo-logo">
+              KUGOO<span>.</span>
+            </div>
+          </div>
+
+          <div className="kugoo-status">
+            <span
+              className={`kugoo-dot ${connected ? "connected" : ""}`}
+            />
+            {connected ? "CONNECTED" : "NOT CONNECTED"}
+          </div>
+        </header>
+
+        <main className="kugoo-content">
+          {menuOpen ? (
+            <section className="kugoo-screen kugoo-page-scroll">
+              <div className="kugoo-heading">Menu</div>
+              <div className="kugoo-subheading">
+                KUGOO dashboard
+              </div>
+
+              <div className="kugoo-menu-grid">
+                {pages.map((item) => (
+                  <button
+                    key={item.id}
+                    className="kugoo-menu-tile"
+                    onClick={() => selectPage(item.id)}
+                  >
+                    <div className="kugoo-menu-icon">
+                      {item.icon}
+                    </div>
+
+                    <div>
+                      <div className="kugoo-menu-name">
+                        {item.name}
+                      </div>
+                      <div className="kugoo-menu-description">
+                        {item.description}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <>
+              {page === "ride" && (
+                <section className="kugoo-screen kugoo-ride-screen">
+                  <div className="kugoo-ride-actions">
+                    {!rideActive ? (
+                      <button
+                        className="kugoo-primary-button"
+                        onClick={startRide}
+                      >
+                        START RIDE
+                      </button>
+                    ) : (
+                      <button
+                        className="kugoo-primary-button"
+                        onClick={stopRide}
+                      >
+                        STOP RIDE
+                      </button>
+                    )}
+
+                    <button
+                      className="kugoo-secondary-button"
+                      onClick={() => setDemoMode(!demoMode)}
+                    >
+                      DEMO {demoMode ? "ON" : "OFF"}
+                    </button>
+                  </div>
+
+                  <div className="kugoo-speed-card">
+                    <div className="kugoo-speed-label">
+                      CURRENT SPEED
+                    </div>
+
+                    <div className="kugoo-speed">
+                      {displayedSpeed.toFixed(0)}
+                    </div>
+
+                    <div className="kugoo-speed-unit">
+                      {units === "kmh" ? "KM/H" : "MPH"}
+                    </div>
+                  </div>
+
+                  <div className="kugoo-stats-grid">
+                    <div className="kugoo-stat-card">
+                      <div className="kugoo-stat-label">
+                        Battery
+                      </div>
+                      <div className="kugoo-stat-value">
+                        {telemetry.battery || "--"}
+                        <span className="kugoo-stat-unit">%</span>
+                      </div>
+                    </div>
+
+                    <div className="kugoo-stat-card">
+                      <div className="kugoo-stat-label">
+                        Power
+                      </div>
+                      <div className="kugoo-stat-value">
+                        {telemetry.power || "--"}
+                        <span className="kugoo-stat-unit">W</span>
+                      </div>
+                    </div>
+
+                    <div className="kugoo-stat-card">
+                      <div className="kugoo-stat-label">
+                        Motor temp
+                      </div>
+                      <div className="kugoo-stat-value">
+                        {telemetry.motorTemp ?? "--"}
+                        <span className="kugoo-stat-unit">°C</span>
+                      </div>
+                    </div>
+
+                    <div className="kugoo-stat-card">
+                      <div className="kugoo-stat-label">
+                        Trip distance
+                      </div>
+                      <div className="kugoo-stat-value">
+                        {displayedDistance.toFixed(1)}
+                        <span className="kugoo-stat-unit">
+                          {units === "kmh" ? "KM" : "MI"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="kugoo-stat-card">
+                    <div className="kugoo-row">
+                      <span className="kugoo-stat-label">
+                        RIDE TIME
+                      </span>
+                      <strong>{formatTime(rideSeconds)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="kugoo-notice">
+                    {demoMode
+                      ? "DEMO DATA — NOT REAL VEHICLE TELEMETRY"
+                      : connected
+                      ? "Bluetooth connected. Telemetry protocol not configured."
+                      : "Connect a supported device to begin."}
+                  </div>
+                </section>
+              )}
+
+              {page === "statistics" && (
+                <section className="kugoo-screen kugoo-page-scroll">
+                  <div className="kugoo-heading">Statistics</div>
+                  <div className="kugoo-subheading">
+                    Your locally saved rides
+                  </div>
+
+                  <div className="kugoo-card">
+                    <div className="kugoo-card-title">
+                      Ride records
+                    </div>
+
+                    <div className="kugoo-row">
+                      <span>Total rides</span>
+                      <strong>{rides.length}</strong>
+                    </div>
+
+                    <div className="kugoo-row">
+                      <span>Total distance</span>
+                      <strong>
+           
