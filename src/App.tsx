@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Page =
   | "ride"
@@ -726,8 +726,6 @@ export default function App() {
     setMessage("");
   };
 
-  const currentPageName =
-    pages.find((item) => item.id === page)?.name || "Ride";
 
   return (
     <div className={`kugoo-app ${theme}`}>
