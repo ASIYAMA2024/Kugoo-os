@@ -1114,21 +1114,32 @@ export default function App() {
 </main>
 </div>
 </div>
-);
-}
-@media (orientation: landscape) {
+)
+}@media (orientation: landscape) {
   .kugoo-ride-screen {
+    display: grid;
     grid-template-rows: auto minmax(90px, 1fr) auto auto auto;
     gap: 6px;
     padding: 8px 14px;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .kugoo-speed-card {
+    min-height: 0;
+    min-width: 0;
+    padding: 5px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
   .kugoo-speed {
     font-size: clamp(38px, 13vh, 76px);
-  }
-
-  .kugoo-speed-card {
-    padding: 5px;
+    line-height: 0.95;
+    white-space: nowrap;
   }
 
   .kugoo-stats-grid {
@@ -1138,6 +1149,7 @@ export default function App() {
 
   .kugoo-stat-card {
     padding: 7px 9px;
+    min-width: 0;
   }
 
   .kugoo-stat-value {
