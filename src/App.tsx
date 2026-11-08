@@ -895,23 +895,220 @@ export default function App() {
               )}
 
               {page === "statistics" && (
-                <section className="kugoo-screen kugoo-page-scroll">
-                  <div className="kugoo-heading">Statistics</div>
-                  <div className="kugoo-subheading">
-                    Your locally saved rides
-                  </div>
+  <section className="kugoo-screen kugoo-page-scroll">
+    <div className="kugoo-heading">Statistics</div>
+    <div className="kugoo-subheading">
+      Your locally saved rides
+    </div>
 
-                  <div className="kugoo-card">
-                    <div className="kugoo-card-title">
-                      Ride records
-                    </div>
+    <div className="kugoo-card">
+      <div className="kugoo-card-title">Ride records</div>
 
-                    <div className="kugoo-row">
-                      <span>Total rides</span>
-                      <strong>{rides.length}</strong>
-                    </div>
+      <div className="kugoo-row">
+        <span>Total rides</span>
+        <strong>{rides.length}</strong>
+      </div>
 
-                    <div className="kugoo-row">
-                      <span>Total distance</span>
-                      <strong>
-           
+      <div className="kugoo-row">
+        <span>Total distance</span>
+        <strong>
+          {rides.reduce((sum, ride) => sum + ride.distance, 0).toFixed(1)} km
+        </strong>
+      </div>
+
+      <div className="kugoo-row">
+        <span>Total ride time</span>
+        <strong>
+          {formatTime(rides.reduce((sum, ride) => sum + ride.duration, 0))}
+        </strong>
+      </div>
+    </div>
+
+    <div className="kugoo-card">
+      <div className="kugoo-card-title">Ride history</div>
+
+      {rides.length === 0 ? (
+        <div className="kugoo-empty">No rides saved yet.</div>
+      ) : (
+        rides.map((ride) => (
+          <div className="kugoo-row" key={ride.id}>
+            <div>
+              <strong>{ride.distance.toFixed(1)} km</strong>
+              <div className="kugoo-muted">{ride.date}</div>
+            </div>
+            <span>{formatTime(ride.duration)}</span>
+          </div>
+        ))
+      )}
+    </div>
+
+    <button className="kugoo-primary-button" onClick={exportRides}>
+      EXPORT RIDE DATA
+    </button>
+  </section>
+)}
+
+{page === "battery" && (
+  <section className="kugoo-screen kugoo-page-scroll">
+    <div className="kugoo-heading">Battery</div>
+    <div className="kugoo-subheading">Battery information</div>
+
+    <div className="kugoo-card">
+      <div className="kugoo-card-title">Battery status</div>
+      <div className="kugoo-row">
+        <span>Charge level</span>
+        <strong>{telemetry.battery ? `${telemetry.battery}%` : "--"}</strong>
+      </div>
+      <div className="kugoo-row">
+        <span>Voltage</span>
+        <strong>{telemetry.voltage ? `${telemetry.voltage.toFixed(1)} V` : "--"}</strong>
+      </div>
+      <div className="kugoo-row">
+        <span>Power</span>
+        <strong>{telemetry.power ? `${telemetry.power} W` : "--"}</strong>
+      </div>
+    </div>
+
+    <div className="kugoo-message">
+      Battery readings require a verified telemetry protocol.
+    </div>
+  </section>
+)}
+
+{page === "diagnostics" && (
+  <section className="kugoo-screen kugoo-page-scroll">
+    <div className="kugoo-heading">Diagnostics</div>
+    <div className="kugoo-subheading">System information</div>
+
+    <div className="kugoo-card">
+      <div className="kugoo-row">
+        <span>Dashboard</span>
+        <strong>Online</strong>
+      </div>
+      <div className="kugoo-row">
+        <span>Bluetooth</span>
+        <strong>{connected ? "Connected" : "Disconnected"}</strong>
+      </div>
+      <div className="kugoo-row">
+        <span>Demo mode</span>
+        <strong>{demoMode ? "Enabled" : "Disabled"}</strong>
+      </div>
+      <div className="kugoo-row">
+        <span>Motor temperature</span>
+        <strong>{telemetry.motorTemp ?? "Unavailable"}{telemetry.motorTemp !== null ? " °C" : ""}</strong>
+      </div>
+      <div className="kugoo-row">
+        <span>Controller temperature</span>
+        <strong>{telemetry.controllerTemp ?? "Unavailable"}{telemetry.controllerTemp !== null ? " °C" : ""}</strong>
+      </div>
+    </div>
+
+    <div className="kugoo-message">
+      Read-only connection handling. No controller or BMS commands are sent.
+    </div>
+  </section>
+)}
+
+{page === "bluetooth" && (
+  <section className="kugoo-screen kugoo-page-scroll">
+    <div className="kugoo-heading">Bluetooth</div>
+    <div className="kugoo-subheading">Connect your vehicle devices</div>
+
+    {message && <div className="kugoo-message">{message}</div>}
+
+    <div className="kugoo-card">
+      <div className="kugoo-card-title">FarDriver ND72450</div>
+      <div className="kugoo-row">
+        <span>Connection</span>
+        <strong>{connected ? "Connected" : "Not connected"}</strong>
+      </div>
+      <div className="kugoo-row">
+        <span>Device</span>
+        <strong>{device?.name || "Not selected"}</strong>
+      </div>
+
+      {!connected ? (
+        <button
+          className="kugoo-primary-button"
+          disabled={connecting}
+          onClick={connectBluetooth}
+        >
+          {connecting ? "CONNECTING..." : "CONNECT DEVICE"}
+        </button>
+      ) : (
+        <button className="kugoo-secondary-button" onClick={disconnectBluetooth}>
+          DISCONNECT
+        </button>
+      )}
+    </div>
+
+    <div className="kugoo-card">
+      <div className="kugoo-card-title">JBD BMS</div>
+      <div className="kugoo-muted">
+        Not connected. A verified JBD BLE protocol is required.
+      </div>
+    </div>
+  </section>
+)}
+
+{page === "settings" && (
+  <section className="kugoo-screen kugoo-page-scroll">
+    <div className="kugoo-heading">Settings</div>
+    <div className="kugoo-subheading">Customise your dashboard</div>
+
+    <div className="kugoo-card">
+      <div className="kugoo-row">
+        <span>Appearance</span>
+        <button
+          className="kugoo-setting-button"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        >
+          {theme === "dark" ? "Dark" : "Light"}
+        </button>
+      </div>
+
+      <div className="kugoo-row">
+        <span>Speed units</span>
+        <button
+          className="kugoo-setting-button"
+          onClick={() => setUnits(units === "kmh" ? "mph" : "kmh")}
+        >
+          {units === "kmh" ? "KM/H" : "MPH"}
+        </button>
+      </div>
+
+      <div className="kugoo-row">
+        <span>Demo mode</span>
+        <button
+          className="kugoo-setting-button"
+          onClick={() => setDemoMode(!demoMode)}
+        >
+          {demoMode ? "ON" : "OFF"}
+        </button>
+      </div>
+    </div>
+
+    <div className="kugoo-card">
+      <div className="kugoo-card-title">About</div>
+      <div className="kugoo-row">
+        <span>App</span>
+        <strong>KUGOO Dashboard</strong>
+      </div>
+      <div className="kugoo-row">
+        <span>Version</span>
+        <strong>1.0.0</strong>
+      </div>
+      <div className="kugoo-row">
+        <span>Storage</span>
+        <strong>Local device</strong>
+      </div>
+    </div>
+  </section>
+)}
+</>
+)}
+</main>
+</div>
+</div>
+);
+}
