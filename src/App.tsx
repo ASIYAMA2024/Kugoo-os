@@ -239,10 +239,12 @@ button {
 }
 
 .kugoo-ride-screen {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-rows: auto minmax(100px, 1fr) auto auto auto;
+  gap: 8px;
   overflow: hidden;
+  min-height: 0;
+  height: 100%;
 }
 
 .kugoo-ride-actions {
@@ -275,13 +277,15 @@ button {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 19px;
-  padding: 13px 18px;
+  padding: 8px 12px;
   text-align: center;
-  flex: 1.25;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .kugoo-speed-label {
@@ -292,11 +296,13 @@ button {
 }
 
 .kugoo-speed {
-  font-size: clamp(64px, 15vw, 112px);
+  font-size: clamp(42px, 12vh, 100px);
   font-weight: 900;
-  line-height: 1;
-  letter-spacing: -5px;
+  line-height: 0.95;
+  letter-spacing: -3px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .kugoo-speed-unit {
@@ -1109,4 +1115,32 @@ export default function App() {
 </div>
 </div>
 );
+}
+@media (orientation: landscape) {
+  .kugoo-ride-screen {
+    grid-template-rows: auto minmax(90px, 1fr) auto auto auto;
+    gap: 6px;
+    padding: 8px 14px;
+  }
+
+  .kugoo-speed {
+    font-size: clamp(38px, 13vh, 76px);
+  }
+
+  .kugoo-speed-card {
+    padding: 5px;
+  }
+
+  .kugoo-stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .kugoo-stat-card {
+    padding: 7px 9px;
+  }
+
+  .kugoo-stat-value {
+    font-size: clamp(16px, 3.5vw, 23px);
+  }
 }
