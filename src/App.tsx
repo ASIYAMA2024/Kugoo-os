@@ -1115,44 +1115,4 @@ export default function App() {
 </div>
 </div>
 )
-}@media (orientation: landscape) {
-  .kugoo-ride-screen {
-    display: grid;
-    grid-template-rows: auto minmax(90px, 1fr) auto auto auto;
-    gap: 6px;
-    padding: 8px 14px;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .kugoo-speed-card {
-    min-height: 0;
-    min-width: 0;
-    padding: 5px;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .kugoo-speed {
-    font-size: clamp(38px, 13vh, 76px);
-    line-height: 0.95;
-    white-space: nowrap;
-  }
-
-  .kugoo-stats-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px;
-  }
-
-  .kugoo-stat-card {
-    padding: 7px 9px;
-    min-width: 0;
-  }
-
-  .kugoo-stat-value {
-    font-size: clamp(16px, 3.5vw, 23px);
-  }
 }
